@@ -1,0 +1,714 @@
+---
+title: "igraph"
+author: "IGlavincheska"
+date: "2025-02-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(RColorBrewer)
+```
+
+```{r}
+merged_data <- read.csv("WP1.2/data/TAD-TAD/IPO323_WT.intraTAD-TAD.tsv", sep='\t')
+colnames(merged_data) <- c('chrom1',	'start1',	'end1',	'chrom2',	'start2',	'end2',	'pvalue',	'pvalue_corrected',	'observed_count',	'expected_count',	'log_ratio',	'odds_ratio',	'omega','tad_id1','tad_id2', 'InteractionType', 'log2_odds_ratio')
+# Convert chrom1 and chrom2 to numeric (if they are stored as character)
+merged_data$chrom1 <- as.numeric(gsub("chr", "", merged_data$chrom1))
+merged_data$chrom2 <- as.numeric(gsub("chr", "", merged_data$chrom2))
+
+# Filter to keep only chromosomes 1-13
+#merged_data <- merged_data[merged_data$chrom1 == 1,] #%in% 1:13 & merged_data$chrom2 %in% 1:13, ]
+vertex_chrom_map <- merged_data %>%
+  select(tad_id1, chrom1) %>%
+  distinct() %>%
+  bind_rows(merged_data %>% 
+              select(tad_id2, chrom2) %>%
+              rename(tad_id1 = tad_id2, chrom1 = chrom2)) %>%
+  distinct()
+
+merged_data_m <- read.csv("WP1.2/data/TAD-TAD/IPO323+dim2.intraTAD-TAD.tsv", sep='\t')
+colnames(merged_data_m) <- c('chrom1',	'start1',	'end1',	'chrom2',	'start2',	'end2',	'pvalue',	'pvalue_corrected',	'observed_count',	'expected_count',	'log_ratio',	'odds_ratio',	'omega','tad_id1','tad_id2', 'InteractionType', 'log2_odds_ratio')
+merged_data_m$chrom1 <- as.numeric(gsub("chr", "", merged_data_m$chrom1))
+merged_data_m$chrom2 <- as.numeric(gsub("chr", "", merged_data_m$chrom2))
+# Filter to keep only chromosomes 1-13
+merged_data_m <- merged_data_m[merged_data_m$chrom1 == 1,] #%in% 1:13 & merged_data_m$chrom2 %in% 1:13, ]
+
+vertex_chrom_map_m <- merged_data_m %>%
+  select(tad_id1, chrom1) %>%
+  distinct() %>%
+  bind_rows(merged_data_m %>% 
+              select(tad_id2, chrom2) %>%
+              rename(tad_id1 = tad_id2, chrom1 = chrom2)) %>%
+  distinct()
+
+
+merged_data2 <- read.csv("WP1.2/data/TAD-TAD/IR26b_WT.intraTAD-TAD.tsv", sep='\t')
+colnames(merged_data2) <- c('chrom1',	'start1',	'end1',	'chrom2',	'start2',	'end2',	'pvalue',	'pvalue_corrected',	'observed_count',	'expected_count',	'log_ratio',	'odds_ratio',	'omega','tad_id1','tad_id2', 'InteractionType', 'log2_odds_ratio')
+vertex_chrom_map2 <- merged_data2 %>%
+  select(tad_id1, chrom1) %>%
+  distinct() %>%
+  bind_rows(merged_data2 %>% 
+              select(tad_id2, chrom2) %>%
+              rename(tad_id1 = tad_id2, chrom1 = chrom2)) %>%
+  distinct()
+merged_data2 <- merged_data2 %>%
+  filter(chrom1 %in% c("IR01_26b.chr_1"))
+merged_data2_m <- read.csv("WP1.2/data/TAD-TAD/IR26b-dim2.intraTAD-TAD.tsv", sep='\t')
+colnames(merged_data2_m) <- c('chrom1',	'start1',	'end1',	'chrom2',	'start2',	'end2',	'pvalue',	'pvalue_corrected',	'observed_count',	'expected_count',	'log_ratio',	'odds_ratio',	'omega','tad_id1','tad_id2', 'InteractionType', 'log2_odds_ratio')
+vertex_chrom_map2_m <- merged_data2_m %>%
+  select(tad_id1, chrom1) %>%
+  distinct() %>%
+  bind_rows(merged_data2_m %>% 
+              select(tad_id2, chrom2) %>%
+              rename(tad_id1 = tad_id2, chrom1 = chrom2)) %>%
+  distinct()
+merged_data2_m <- merged_data2_m %>%
+  filter(chrom1 %in% c("IR01_26b.chr_1"))
+
+
+  
+
+```
+
+# Create the edge list from the filtered data
+```{r}
+edges <- data.frame(
+  source = paste(merged_data$tad_id1),
+  target = paste(merged_data$tad_id2),
+  weight = merged_data$odds_ratio,
+  pvalue = merged_data$pvalue_corrected,
+  log_ratio = merged_data$log_ratio,
+  InteractionType = merged_data$InteractionType,
+  chromosome = merged_data$chrom1
+)
+
+# 1. Generate a color palette for 21 chromosomes
+chrom_colors <- rep(brewer.pal(12, "Paired"), length.out = 21)
+                    
+# 2. Map the chromosomes to their colors
+chrom_map <- setNames(chrom_colors, as.character(1:21))  # Assuming chromosomes are numbered 1 to 21
+
+#edges <- edges[merged_data$odds_ratio > 1, ]
+# Create the graph
+g <- graph_from_data_frame(edges, directed = FALSE)
+```
+
+```{r}
+# Create the edge list from the filtered data
+edges_m <- data.frame(
+  source = paste(merged_data_m$tad_id1),
+  target = paste(merged_data_m$tad_id2),
+  weight = merged_data_m$odds_ratio,
+  pvalue = merged_data_m$pvalue_corrected,
+  log_ratio = merged_data_m$log_ratio
+)
+#edges_m <- edges_m[merged_data_m$odds_ratio > 1, ]
+
+# Create the graph
+g_m <- graph_from_data_frame(edges_m, directed = FALSE)
+```
+
+```{r}
+# Create the edge list from the filtered data
+edges2 <- data.frame(
+  source = paste(merged_data2$tad_id1),
+  target = paste(merged_data2$tad_id2),
+  weight = merged_data2$odds_ratio,
+  pvalue = merged_data2$pvalue_corrected,
+  log_ratio = merged_data2$log_ratio
+)
+#edges2 <- edges2[merged_data2$odds_ratio > 1, ]
+
+# Create the graph
+g2 <- graph_from_data_frame(edges2, directed = FALSE)
+```
+
+```{r}
+# Create the edge list from the filtered data
+edges2_m <- data.frame(
+  source = paste(merged_data2_m$tad_id1),
+  target = paste(merged_data2_m$tad_id2),
+  weight = merged_data2_m$odds_ratio,
+  pvalue = merged_data2_m$pvalue_corrected,
+  log_ratio = merged_data2_m$log_ratio
+)
+#edges2_m <- edges2_m[merged_data2_m$odds_ratio > 1, ]
+
+# Create the graph
+g2_m <- graph_from_data_frame(edges2_m, directed = FALSE)
+```
+
+```{r}
+# Set edge attributes
+E(g)$weight <- edges$weight*2
+E(g)$pvalue <- edges$pvalue
+E(g)$log_ratio <- edges$log_ratio
+E(g)$color <- "gray"
+E(g)$color <- alpha(E(g)$color, 0.1)
+
+E(g_m)$weight <- edges_m$weight
+E(g_m)$pvalue <- edges_m$pvalue
+E(g_m)$log_ratio <- edges_m$log_ratio
+E(g_m)$color <- "gray"
+E(g_m)$color <- alpha(E(g_m)$color, 0.1)
+
+E(g2)$weight <- edges2$weight
+E(g2)$pvalue <- edges2$pvalue
+E(g2)$log_ratio <- edges2$log_ratio
+E(g2)$color <- "gray"
+E(g2)$color <- alpha(E(g2)$color, 0.1)
+
+E(g2_m)$weight <- edges2_m$weight
+E(g2_m)$pvalue <- edges2_m$pvalue
+E(g2_m)$log_ratio <- edges2_m$log_ratio
+E(g2_m)$color <- "gray"
+E(g2_m)$color <- alpha(E(g2_m)$color, 0.1)
+```
+
+```{r}
+# Set vertex attributes
+unique_tads <- unique(c(merged_data$tad_id1, merged_data$tad_id2))
+V(g)$label <- unique_tads
+V(g)$label <- vertex_chrom_map$chrom1
+# Generate 21 unique colors
+chrom_colors <- colorRampPalette(brewer.pal(12, "Paired"))(21)
+
+# Create a named vector mapping chromosome numbers to colors
+chrom_map <- setNames(chrom_colors, as.character(1:21))
+
+# Assign colors to TADs based on their chromosome
+vertex_colors <- vertex_chrom_map %>%
+  mutate(color = chrom_map[as.character(chrom1)]) %>%
+  deframe()
+V(g)$color <- vertex_colors[V(g)$label]
+
+unique_tads_m <- unique(c(merged_data_m$tad_id1, merged_data_m$tad_id2))
+V(g_m)$label <- unique_tads_m
+V(g_m)$label <- vertex_chrom_map_m$chrom1
+
+unique_tads2 <- unique(c(merged_data2$tad_id1, merged_data2$tad_id2))
+V(g2)$label <- unique_tads2
+#V(g2)$label <- vertex_chrom_map2$chrom1
+
+unique_tads2_m <- unique(c(merged_data2_m$tad_id1, merged_data2_m$tad_id2))
+V(g2_m)$label <- unique_tads2_m
+#V(g2_m)$label <- vertex_chrom_map2_m$chrom1
+V(g2_m)$color <- "#628aae"
+```
+
+```{r}
+set.seed(123)
+
+# Create the layout using graphopt with the charge parameter
+layout <- layout_with_graphopt(g, charge = 0.00003)
+# Plot the graph with graphopt layout and labels
+
+png("WP1.2/figures/IPO323_WT_intraTADnetwork.png", width = 2000, height = 2000, res = 300)
+plot(g, 
+     layout = layout, 
+     vertex.size = 3, 
+     vertex.label.cex = 0.01, 
+     vertex.label = E(g)$label,  # Use labels created from the id column
+     edge.width = E(g)$weight,  # Scale edge width for better visualization
+     vertex.color = "black")       # Color nodes based on degree
+dev.off()
+
+layout <- layout_with_graphopt(g_m, charge = 0.00003)
+png("WP1.2/figures/IPO323+dim2_intraTADnetwork_chr1.png", width = 2000, height = 2000, res = 300)
+plot(g_m, 
+     layout = layout, 
+     vertex.size = 3, 
+     vertex.label.cex = 0.1, 
+     #vertex.label = V(g_m)$label,  # Use labels created from the id column
+     edge.width = E(g_m)$weight,  # Scale edge width for better visualization
+     vertex.color = "black")       # Color nodes based on degree
+dev.off()
+
+layout <- layout_with_graphopt(g2, charge = 0.00003)
+png("WP1.2/figures/IR26b_WT_intraTADnetwork_chr1.png", width = 2000, height = 2000, res = 300)
+plot(g2, 
+     layout = layout, 
+     vertex.size = 3, 
+     vertex.label.cex = 0.01, 
+     #vertex.label = V(g2)$label,  # Use labels created from the id column
+     edge.width = E(g2)$weight,  # Scale edge width for better visualization
+     vertex.color = "black")       # Color nodes based on degree
+dev.off()
+
+
+layout <- layout_with_graphopt(g2_m, charge = 0.00003)
+png("WP1.2/figures/IR26b-dim2_intraTADnetwork_chr1.png", width = 2000, height = 2000, res = 300)
+# Convert edge colors to include transparency
+# Plot with transparency
+plot(g2_m, 
+     layout = layout, 
+     vertex.size = 3, 
+     vertex.label.cex = 0.01, 
+     edge.width = E(g2_m)$weight,  
+     vertex.color = "black")
+
+dev.off()
+```
+
+```{r}
+library(dplyr)
+library(igraph)
+
+# Load TAD and 5mC data
+tad_df <- read.table("WP1.2/data/TADs/IR26b-dim2_bin3kb_norm_ICE_5_DEFAULT_domains.bed", header = FALSE)
+colnames(tad_df) <- c("chrom", "start", "end", "tad_id")
+
+m5C_df <- read.table("WP1.2/data/5mC/IR0126b-dim2_5mC_w0.3kb.bed", header = FALSE)
+colnames(m5C_df) <- c("chrom", "start", "end", "m5C_level")
+
+# Convert to IRanges for interval overlap
+tad_ranges <- IRanges(start = tad_df$start, end = tad_df$end, names = tad_df$tad_id)
+m5C_ranges <- IRanges(start = m5C_df$start, end = m5C_df$end)
+
+# Find overlaps
+overlaps <- findOverlaps(tad_ranges, m5C_ranges)
+
+# Create a mapping of TADs to 5mC values
+tad_m5C <- data.frame(
+  tad_id = names(tad_ranges)[queryHits(overlaps)],
+  m5C_level = m5C_df$m5C_level[subjectHits(overlaps)]
+) %>%
+  group_by(tad_id) %>%
+  summarize(mean_m5C = mean(m5C_level, na.rm = TRUE))
+
+# Compute median 5mC level
+median_m5C <- median(tad_m5C$mean_m5C, na.rm = TRUE)
+
+# Assign colors based on threshold
+V(g2_m)$color <- ifelse(V(g2_m)$name %in% tad_m5C$tad_id[tad_m5C$mean_m5C > median_m5C], "#82b9d9", "beige")
+set.seed(123)
+layout <- layout_with_graphopt(g2_m, charge = 0.00003)
+png("WP1.2/figures/IR26b-dim2_interTADnetwork>5mC.png", width = 2000, height = 2000, res = 300)
+# Plot the network
+plot(g2_m, 
+     layout = layout, 
+     vertex.size = 3, 
+     vertex.label.cex = 0.01, 
+     edge.width = E(g2_m)$log_ratio,  
+     vertex.color = V(g2_m)$color,       
+     edge.color = E(g2_m)$color)
+
+dev.off()
+```
+
+```{r}
+library(dplyr)
+library(igraph)
+
+# Load TAD and 5mC data
+tad_df <- read.table("WP1.2/data/TADs/IR26b_WT_bin3kb_norm_ICE_5_DEFAULT_domains.bed", header = FALSE)
+colnames(tad_df) <- c("chrom", "start", "end", "tad_id")
+
+m5C_df <- read.table("WP1.2/data/5mC/IR0126b_WT_5mC_w0.3kb.bed", header = FALSE)
+colnames(m5C_df) <- c("chrom", "start", "end", "m5C_level")
+
+# Convert to IRanges for interval overlap
+tad_ranges <- IRanges(start = tad_df$start, end = tad_df$end, names = tad_df$tad_id)
+m5C_ranges <- IRanges(start = m5C_df$start, end = m5C_df$end)
+
+# Find overlaps
+overlaps <- findOverlaps(tad_ranges, m5C_ranges)
+
+# Create a mapping of TADs to 5mC values
+tad_m5C <- data.frame(
+  tad_id = names(tad_ranges)[queryHits(overlaps)],
+  m5C_level = m5C_df$m5C_level[subjectHits(overlaps)]
+) %>%
+  group_by(tad_id) %>%
+  summarize(mean_m5C = mean(m5C_level, na.rm = TRUE))
+
+# Compute median 5mC level
+median_m5C <- median(tad_m5C$mean_m5C, na.rm = TRUE)
+
+# Assign colors based on threshold
+V(g2)$color <- ifelse(V(g2)$name %in% tad_m5C$tad_id[tad_m5C$mean_m5C > median_m5C], "#82b9d9", "beige")
+set.seed(123)
+layout <- layout_with_graphopt(g2, charge = 0.00003)
+png("WP1.2/figures/IR26b_WT_interTADnetwork>5mC.png", width = 2000, height = 2000, res = 300)
+# Plot the network
+plot(g2, 
+     layout = layout, 
+     vertex.size = 3, 
+     vertex.label.cex = 0.01, 
+     edge.width = E(g2)$log_ratio,  
+     vertex.color = V(g2)$color,       
+     edge.color = E(g2)$color)
+
+dev.off()
+```
+
+```{r}
+library(dplyr)
+library(igraph)
+
+# Load TAD and 5mC data
+tad_df <- read.table("WP1.2/data/TADs/IPO323+dim2_bin3kb_norm_ICE_DEFAULT_domains.bed", header = FALSE)
+colnames(tad_df) <- c("chrom", "start", "end", "tad_id")
+
+m5C_df <- read.table("WP1.2/data/5mC/IPO323+dim2_5mC_w0.3kb.bed", header = FALSE)
+colnames(m5C_df) <- c("chrom", "start", "end", "m5C_level")
+
+# Convert to IRanges for interval overlap
+tad_ranges <- IRanges(start = tad_df$start, end = tad_df$end, names = tad_df$tad_id)
+m5C_ranges <- IRanges(start = m5C_df$start, end = m5C_df$end)
+
+# Find overlaps
+overlaps <- findOverlaps(tad_ranges, m5C_ranges)
+
+# Create a mapping of TADs to 5mC values
+tad_m5C <- data.frame(
+  tad_id = names(tad_ranges)[queryHits(overlaps)],
+  m5C_level = m5C_df$m5C_level[subjectHits(overlaps)]
+) %>%
+  group_by(tad_id) %>%
+  summarize(mean_m5C = mean(m5C_level, na.rm = TRUE))
+
+# Compute median 5mC level
+median_m5C <- median(tad_m5C$mean_m5C, na.rm = TRUE)
+
+# Assign colors based on threshold
+V(g_m)$color <- ifelse(V(g_m)$name %in% tad_m5C$tad_id[tad_m5C$mean_m5C > median_m5C], "#82b9d9", "beige")
+set.seed(123)
+layout <- layout_with_graphopt(g_m, charge = 0.00003)
+png("WP1.2/figures/IPO323+dim2_interTADnetwork>5mC.png", width = 2000, height = 2000, res = 300)
+# Plot the network
+plot(g_m, 
+     layout = layout, 
+     vertex.size = 3, 
+     vertex.label.cex = 0.01, 
+     edge.width = E(g_m)$log_ratio,  
+     vertex.color = V(g_m)$color,       
+     edge.color = E(g_m)$color)
+
+dev.off()
+```
+
+```{r}
+library(dplyr)
+library(igraph)
+
+# Load TAD and 5mC data
+tad_df <- read.table("WP1.2/data/TADs/IPO323_WT_bin3kb_norm_ICE_5_DEFAULT_domains.bed", header = FALSE)
+colnames(tad_df) <- c("chrom", "start", "end", "tad_id")
+
+m5C_df <- read.table("WP1.2/data/5mC/IPO323_WT_5mC_w0.3kb.bed", header = FALSE)
+colnames(m5C_df) <- c("chrom", "start", "end", "m5C_level")
+
+# Convert to IRanges for interval overlap
+tad_ranges <- IRanges(start = tad_df$start, end = tad_df$end, names = tad_df$tad_id)
+m5C_ranges <- IRanges(start = m5C_df$start, end = m5C_df$end)
+
+# Find overlaps
+overlaps <- findOverlaps(tad_ranges, m5C_ranges)
+
+# Create a mapping of TADs to 5mC values
+tad_m5C <- data.frame(
+  tad_id = names(tad_ranges)[queryHits(overlaps)],
+  m5C_level = m5C_df$m5C_level[subjectHits(overlaps)]
+) %>%
+  group_by(tad_id) %>%
+  summarize(mean_m5C = mean(m5C_level, na.rm = TRUE))
+
+# Compute median 5mC level
+median_m5C <- median(tad_m5C$mean_m5C, na.rm = TRUE)
+
+# Assign colors based on threshold
+V(g)$color <- ifelse(V(g)$name %in% tad_m5C$tad_id[tad_m5C$mean_m5C > median_m5C], "#82b9d9", "beige")
+set.seed(123)
+layout <- layout_with_graphopt(g, charge = 0.0003)
+png("WP1.2/figures/IPO323_WT_interTADnetwork>5mC.png", width = 2000, height = 2000, res = 300)
+# Plot the network
+plot(g, 
+     layout = layout, 
+     vertex.size = 3, 
+     vertex.label.cex = 0.01, 
+     edge.width = E(g)$log_ratio/10,  
+     vertex.color = V(g)$color,       
+     edge.color = E(g)$color)
+
+dev.off()
+```
+
+```{r}
+library(GenomicRanges)
+# Load TADs for both strains
+tads_A <- read.table("WP1.2/data/TADs/IPO323_WT_bin3kb_norm_ICE_5_DEFAULT_domains.bed", header = FALSE)
+colnames(tads_A) <- c("chrom", "start", "end", "TAD")
+tads_B <- read.table("WP1.2/data/TADs/IPO323+dim2_bin3kb_norm_ICE_DEFAULT_domains.bed", header = FALSE)
+colnames(tads_B) <- c("chrom", "start", "end", "TAD")
+
+# Convert to GRanges objects
+gr_A <- GRanges(seqnames = tads_A$chrom, ranges = IRanges(start = tads_A$start, end = tads_A$end, TAD = tads_A$TAD))
+gr_B <- GRanges(seqnames = tads_B$chrom, ranges = IRanges(start = tads_B$start, end = tads_B$end, TAD = tads_B$TAD))
+
+# Find overlaps (TADs that correspond between strains)
+# Extract the indices for the overlaps
+query_hits <- queryHits(overlaps)   # TADs from strain A
+subject_hits <- subjectHits(overlaps)  # TADs from strain B
+
+# Get TAD names from both strains
+overlap_data <- data.frame(
+  TAD_A = tads_A[query_hits, "TAD"],
+  TAD_B = tads_B[subject_hits, "TAD"],
+  Start_A = tads_A[query_hits, "start"],
+  End_A = tads_A[query_hits, "end"],
+  Start_B = tads_B[subject_hits, "start"],
+  End_B = tads_B[subject_hits, "end"]
+)
+
+# View a summary of the overlaps
+head(overlap_data)
+
+# Create a mapping table
+tad_mapping <- data.frame(
+    TAD_A = tads_A[queryHits(overlaps), "TAD"],
+    TAD_B = tads_B[subjectHits(overlaps), "TAD"]
+)
+
+print(tad_mapping)
+
+
+```
+
+```{r}
+# If the metadata is a simple vector
+metadata_A <- mcols(gr_A)[queryHits(overlaps), ]
+metadata_B <- mcols(gr_B)[subjectHits(overlaps), ]
+
+# Create a data frame with overlap and metadata
+overlap_data <- data.frame(
+  TAD_A = gr_A[queryHits(overlaps)]$TAD,
+  TAD_B = gr_B[subjectHits(overlaps)]$TAD,
+  Start_A = start(gr_A[queryHits(overlaps)]),
+  End_A = end(gr_A[queryHits(overlaps)]),
+  Start_B = start(gr_B[subjectHits(overlaps)]),
+  End_B = end(gr_B[subjectHits(overlaps)]),
+  Metadata_A = metadata_A,  # If metadata is a vector
+  Metadata_B = metadata_B   # If metadata is a vector
+)
+
+# Check the overlap data for common interactions
+overlap_data_filtered <- overlap_data[!is.na(overlap_data$TAD_A) & !is.na(overlap_data$TAD_B), ]
+head(overlap_data_filtered)
+
+     # Load igraph package
+library(igraph)
+
+# Create a graph object based on the overlap data
+g <- graph_from_data_frame(overlap_data_filtered, directed = FALSE)
+
+# Check the graph structure
+plot(g, 
+     vertex.size = degree(g),  # Size nodes by their degree (number of overlaps)
+     vertex.color = ifelse(overlap_data_filtered$TAD_A == overlap_data_filtered$TAD_B, "blue", "red"),  # Color by strain
+     vertex.label.cex = 0.01,  # Adjust label size
+     edge.color = "gray",     # Color of edges
+     main = "Network of TAD-TAD Interactions"
+)
+```
+
+```{r}
+merged_data <- read.csv("WP1.2/data/TAD-TAD/IPO323_WT.intraTAD-TAD.tsv", sep='\t')
+colnames(merged_data) <- c('chrom1',	'start1',	'end1',	'chrom2',	'start2',	'end2',	'pvalue',	'pvalue_corrected',	'observed_count',	'expected_count',	'log_ratio',	'odds_ratio',	'omega','tad_id1','tad_id2', 'InteractionType', 'log2_odds_ratio')
+# Convert chrom1 and chrom2 to numeric (if they are stored as character)
+merged_data$chrom1 <- as.numeric(gsub("chr", "", merged_data$chrom1))
+merged_data$chrom2 <- as.numeric(gsub("chr", "", merged_data$chrom2))
+
+# Filter to keep only chromosomes 1-13
+#merged_data <- merged_data[merged_data$chrom1 == 1,] #%in% 1:13 & merged_data$chrom2 %in% 1:13, ]
+vertex_chrom_map <- merged_data %>%
+  select(tad_id1, chrom1) %>%
+  distinct() %>%
+  bind_rows(merged_data %>% 
+              select(tad_id2, chrom2) %>%
+              rename(tad_id1 = tad_id2, chrom1 = chrom2)) %>%
+  distinct()
+
+merged_data_m <- read.csv("WP1.2/data/TAD-TAD/IPO323+dim2.intraTAD-TAD.tsv", sep='\t')
+colnames(merged_data_m) <- c('chrom1',	'start1',	'end1',	'chrom2',	'start2',	'end2',	'pvalue',	'pvalue_corrected',	'observed_count',	'expected_count',	'log_ratio',	'odds_ratio',	'omega','tad_id1','tad_id2', 'InteractionType', 'log2_odds_ratio')
+merged_data_m$chrom1 <- as.numeric(gsub("chr", "", merged_data_m$chrom1))
+merged_data_m$chrom2 <- as.numeric(gsub("chr", "", merged_data_m$chrom2))
+# Filter to keep only chromosomes 1-13
+#merged_data_m <- merged_data_m[merged_data_m$chrom1 == 1,] #%in% 1:13 & merged_data_m$chrom2 %in% 1:13, ]
+
+vertex_chrom_map_m <- merged_data_m %>%
+  select(tad_id1, chrom1) %>%
+  distinct() %>%
+  bind_rows(merged_data_m %>% 
+              select(tad_id2, chrom2) %>%
+              rename(tad_id1 = tad_id2, chrom1 = chrom2)) %>%
+  distinct()
+
+
+merged_data2 <- read.csv("WP1.2/data/TAD-TAD/IR26b_WT.intraTAD-TAD.tsv", sep='\t')
+colnames(merged_data2) <- c('chrom1',	'start1',	'end1',	'chrom2',	'start2',	'end2',	'pvalue',	'pvalue_corrected',	'observed_count',	'expected_count',	'log_ratio',	'odds_ratio',	'omega','tad_id1','tad_id2', 'InteractionType', 'log2_odds_ratio')
+vertex_chrom_map2 <- merged_data2 %>%
+  select(tad_id1, chrom1) %>%
+  distinct() %>%
+  bind_rows(merged_data2 %>% 
+              select(tad_id2, chrom2) %>%
+              rename(tad_id1 = tad_id2, chrom1 = chrom2)) %>%
+  distinct()
+#merged_data2 <- merged_data2 %>%
+#  filter(chrom1 %in% c("IR01_26b.chr_1"))
+merged_data2_m <- read.csv("WP1.2/data/TAD-TAD/IR26b-dim2.intraTAD-TAD.tsv", sep='\t')
+colnames(merged_data2_m) <- c('chrom1',	'start1',	'end1',	'chrom2',	'start2',	'end2',	'pvalue',	'pvalue_corrected',	'observed_count',	'expected_count',	'log_ratio',	'odds_ratio',	'omega','tad_id1','tad_id2', 'InteractionType', 'log2_odds_ratio')
+vertex_chrom_map2_m <- merged_data2_m %>%
+  select(tad_id1, chrom1) %>%
+  distinct() %>%
+  bind_rows(merged_data2_m %>% 
+              select(tad_id2, chrom2) %>%
+              rename(tad_id1 = tad_id2, chrom1 = chrom2)) %>%
+  distinct()
+#merged_data2_m <- merged_data2_m %>%
+#  filter(chrom1 %in% c("IR01_26b.chr_1"))
+
+
+  
+
+```
+
+# Create the edge list from the filtered data
+```{r}
+edges <- data.frame(
+  source = paste(merged_data$tad_id1),
+  target = paste(merged_data$tad_id2),
+  weight = merged_data$odds_ratio,
+  pvalue = merged_data$pvalue_corrected,
+  log_ratio = merged_data$log_ratio,
+  InteractionType = merged_data$InteractionType,
+  chromosome = merged_data$chrom1
+)
+
+# 1. Generate a color palette for 21 chromosomes
+chrom_colors <- rep(brewer.pal(12, "Paired"), length.out = 21)
+                    
+# 2. Map the chromosomes to their colors
+chrom_map <- setNames(chrom_colors, as.character(1:21))  # Assuming chromosomes are numbered 1 to 21
+
+#edges <- edges[merged_data$odds_ratio > 1, ]
+# Create the graph
+g <- graph_from_data_frame(edges, directed = FALSE)
+```
+
+```{r}
+# Create the edge list from the filtered data
+edges_m <- data.frame(
+  source = paste(merged_data_m$tad_id1),
+  target = paste(merged_data_m$tad_id2),
+  weight = merged_data_m$odds_ratio,
+  pvalue = merged_data_m$pvalue_corrected,
+  log_ratio = merged_data_m$log_ratio
+)
+#edges_m <- edges_m[merged_data_m$odds_ratio > 1, ]
+
+# Create the graph
+g_m <- graph_from_data_frame(edges_m, directed = FALSE)
+```
+
+```{r}
+# Create the edge list from the filtered data
+edges2 <- data.frame(
+  source = paste(merged_data2$tad_id1),
+  target = paste(merged_data2$tad_id2),
+  weight = merged_data2$odds_ratio,
+  pvalue = merged_data2$pvalue_corrected,
+  log_ratio = merged_data2$log_ratio
+)
+#edges2 <- edges2[merged_data2$odds_ratio > 1, ]
+
+# Create the graph
+g2 <- graph_from_data_frame(edges2, directed = FALSE)
+```
+
+```{r}
+# Create the edge list from the filtered data
+edges2_m <- data.frame(
+  source = paste(merged_data2_m$tad_id1),
+  target = paste(merged_data2_m$tad_id2),
+  weight = merged_data2_m$odds_ratio,
+  pvalue = merged_data2_m$pvalue_corrected,
+  log_ratio = merged_data2_m$log_ratio
+)
+#edges2_m <- edges2_m[merged_data2_m$odds_ratio > 1, ]
+
+# Create the graph
+g2_m <- graph_from_data_frame(edges2_m, directed = FALSE)
+```
+
+```{r}
+# Set edge attributes
+E(g)$weight <- edges$weight*2
+E(g)$pvalue <- edges$pvalue
+E(g)$log_ratio <- edges$log_ratio
+E(g)$color <- "gray"
+E(g)$color <- alpha(E(g)$color, 0.3)
+
+E(g_m)$weight <- edges_m$weight
+E(g_m)$pvalue <- edges_m$pvalue
+E(g_m)$log_ratio <- edges_m$log_ratio
+E(g_m)$color <- "gray"
+E(g_m)$color <- alpha(E(g_m)$color, 0.3)
+
+E(g2)$weight <- edges2$weight
+E(g2)$pvalue <- edges2$pvalue
+E(g2)$log_ratio <- edges2$log_ratio
+E(g2)$color <- "gray"
+E(g2)$color <- alpha(E(g2)$color, 0.3)
+
+E(g2_m)$weight <- edges2_m$weight
+E(g2_m)$pvalue <- edges2_m$pvalue
+E(g2_m)$log_ratio <- edges2_m$log_ratio
+E(g2_m)$color <- "gray"
+E(g2_m)$color <- alpha(E(g2_m)$color, 0.3)
+```
+
+```{r}
+library(stats)
+interaction_matrix_A <- as.matrix(as_adjacency_matrix(g, attr = "log_ratio"))
+interaction_matrix_B <- as.matrix(as_adjacency_matrix(g_m, attr = "log_ratio"))
+
+common_TADs <- intersect(rownames(interaction_matrix_A), rownames(interaction_matrix_B))
+
+# Subset matrices to include only common TADs
+interaction_matrix_A <- interaction_matrix_A[common_TADs, common_TADs]
+interaction_matrix_B <- interaction_matrix_B[common_TADs, common_TADs]
+```
+
+```{r}
+# Perform hierarchical clustering again
+dist_A <- dist(as.matrix(interaction_matrix_A))
+dist_B <- dist(as.matrix(interaction_matrix_B))
+
+hc_A <- hclust(dist_A, method = "complete")
+hc_B <- hclust(dist_B, method = "complete")
+
+# Cut tree into clusters
+cut_A <- cutree(hc_A, k = 10)
+cut_B <- cutree(hc_B, k = 10)
+
+# Convert to data frame (now with equal TADs)
+tad_mapping <- data.frame(TAD = names(cut_A), Cluster_A = cut_A, Cluster_B = cut_B)
+```
+
+```{r}
+# Convert TAD coordinates to GRanges
+gr_A <- GRanges(seqnames = tads_A$chrom, ranges = IRanges(start = tads_A$start, end = tads_A$end))
+gr_B <- GRanges(seqnames = tads_B$chrom, ranges = IRanges(start = tads_B$start, end = tads_B$end))
+
+# Find overlapping TADs
+overlaps <- findOverlaps(gr_A, gr_B)
+
+# Create mapping table
+tad_mapping <- data.frame(
+    TAD_A = tads_A[queryHits(overlaps), "TAD"],
+    TAD_B = tads_B[subjectHits(overlaps), "TAD"]
+)
+```

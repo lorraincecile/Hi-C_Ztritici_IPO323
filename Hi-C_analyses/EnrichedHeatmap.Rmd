@@ -1,0 +1,1082 @@
+---
+title: "EnrichedHeatmaps"
+author: "IGlavincheska"
+date: "2025-02-19"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(EnrichedHeatmap)
+library(rtracklayer)
+library(regioneR)
+library(circlize)
+library(readr)
+library(dplyr)
+```
+
+```{r}
+set.seed(123)
+col_insulation <- colorRamp2(c(0, 1, 2), c("white", "#1F78B4", "#8856A7"))
+col_H3K4me2 <- colorRamp2(c(-0.5, 0, 0.5), c("white", "#A6CEE3","#1F78B4"))
+col_H3K9me2 <- colorRamp2(c(0, 0.75, 1.5), c("white", "#B2DF8A","#33A02C"))
+col_H3K9me3 <- colorRamp2(c(0, 2, 4), c("white", "#B2DF8A","#33A02C"))
+col_H3K27me2 <- colorRamp2(c(0, 1.5, 3), c("white", "#FB9A99", "#E31A1C"))
+col_H3K27me3 <- colorRamp2(c(0, 0.5, 1), c("white", "#FB9A99","#E31A1C"))
+col_H3K36me3 <- colorRamp2(c(0, 1, 2), c("white", "#CAB2D6", "#6A3D9A"))
+col_H4K20me1 <- colorRamp2(c(0, 2, 3), c("white", "#FDBF6F", "#FF7F00"))
+col_H4K20me3 <- colorRamp2(c(0, 1.5, 3), c("white", "#FDBF6F", "#FF7F00"))
+col_RIP <- colorRamp2(c(-1, 0, 1), c("white", "#FFFF99", "#B15928"))
+col_5mC <- colorRamp2(c(0, 0.05, 0.1), c("white", "#F8B9D1", "#D5006D"))
+col_genes <- colorRamp2(c(0, 1.5, 3), c("white", "#A7D8D1", "#4DB6AC"))
+col_TEs <- colorRamp2(c(0, 0.5, 1), c("white", "lightgray", "#455A64"))
+```
+
+
+# IPO323
+
+```{r}
+in_score <- toGRanges("data/TADs/IPO323_WT_bin3kb_norm_ICE_5_DEFAULT_score.bedgraph")
+mc <- toGRanges("data/5mC/IPO323_WT_5mC_w0.3kb.bed")
+tes <- toGRanges("data/annotations/IPO323_TEs_3kbCount.bed")
+genes <- toGRanges("data/annotations/IPO323_genes_3kbCount.bed")
+RIP <- toGRanges("data/RIP/1_RIP_whole_genome_scan/IPO323_RIPAnalysis_1kb_windows.bed")
+boundaries <- toGRanges("data/TADs/IPO323+dim2_bin3kb_norm_ICE_DEFAULT_boundaries.bed")
+```
+
+## Calculate
+
+```{r}
+in_score$name <- as.numeric(in_score$V4)
+mc$name <- as.numeric(mc$name)
+tes$name <- as.numeric(tes$name)
+genes$name <- as.numeric(genes$name)
+RIP$name <- as.numeric(RIP$name)
+regions = boundaries
+
+m1 = normalizeToMatrix(in_score, boundaries, value_column = "V4", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m2 = normalizeToMatrix(mc, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE, verbose=FALSE)
+m3 = normalizeToMatrix(genes, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m4 = normalizeToMatrix(tes, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m5 = normalizeToMatrix(RIP, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+```
+### Plot
+```{r}
+jpeg("figures/heatmaps_boundaries_IPO323_WT.jpg", width = 12, height = 10, units = "in", res=900)
+
+heatmaps <- EnrichedHeatmap(m1, name = "Insulation Score",
+                  cluster_rows = FALSE,
+                  col = col_insulation,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#8856A7FF", lwd = 2))),
+                  column_title = "Insulation Score", 
+                  column_title_gp = gpar(col = "#8856A7FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m2, name = "5mC",
+                  cluster_rows = FALSE,
+                  col = col_5mC,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#D5006DFF", lwd = 2))),
+                  column_title = "5mC", 
+                  column_title_gp = gpar(col = "#D5006DFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m3, name = "Genes",
+                  cluster_rows = FALSE,
+                  col = col_genes,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#4DB6ACFF", lwd = 2))),
+                  column_title = "Genes", 
+                  column_title_gp = gpar(col = "#4DB6ACFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m4, name = "TEs",
+                  cluster_rows = FALSE,
+                  col = col_TEs,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#455A64FF", lwd = 2))),
+                  column_title = "TEs", 
+                  column_title_gp = gpar(col = "#455A64FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m5, name = "RIP",
+                  cluster_rows = FALSE,
+                  col = col_RIP,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#B15928FF", lwd = 2))),
+                  column_title = "RIP", 
+                  column_title_gp = gpar(col = "#B15928FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))
+
+draw(heatmaps, gap = unit(12, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+```
+
+
+### Just line graph
+```{r}
+library(grid)
+library(ComplexHeatmap)
+
+# Step 1: Draw the heatmaps first and store the modified object
+ht_list <- draw(heatmaps,
+                column_title_gp = gpar(fontsize = 16),
+                 gap = unit(50, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+# Step 1: Open the jpeg device for saving the plot
+jpeg("figures/linegraph_boundaries_IPO323_WT.jpg", width = 12, height = 1.5, units = "in", res = 900)
+
+# Step 2: Create a layout for heatmaps and annotation plots
+grid.newpage()  # Clear the canvas before drawing
+
+layout <- grid.layout(nrow = 1, ncol = 5)
+pushViewport(viewport(layout = layout))
+
+# Step 3: Define a function to add annotations correctly
+add_anno_enriched <- function(ht_list, name, row, col) {
+    pushViewport(viewport(layout.pos.row = row, layout.pos.col = col))  # Position annotation
+    extract_anno_enriched(ht_list, name, newpage = FALSE)
+    upViewport()  # Move back up to prevent overlapping
+}
+
+# Step 4: Place annotations separately in grid layout
+add_anno_enriched(ht_list, "Insulation Score", 1, 1)
+add_anno_enriched(ht_list, "5mC", 1, 2)
+add_anno_enriched(ht_list, "Genes", 1, 3)
+add_anno_enriched(ht_list, "TEs", 1, 4)
+add_anno_enriched(ht_list, "RIP", 1, 5)
+
+# Step 5: Exit the viewport system to finalize drawing
+upViewport(0)
+
+# Step 6: Close the jpeg device to save the plot
+dev.off()
+
+```
+
+## HI-TADs
+
+```{r}
+hi_tads <- read_tsv("data/HI-TADs/IPO323+dim2_HI-TADs.bed", col_names = c("chrom", "start", "end", "id", "type"))
+hi_tads$type <- "HI-TAD"
+r_tads <- read_tsv("data/HI-TADs/IPO323+dim2_R-TADs.bed", col_names = c("chrom", "start", "end", "id", "type"))
+r_tads$type <- "R-TAD"
+
+tads <- rbind(hi_tads, r_tads) %>%
+  distinct()
+
+# Convert to GRanges
+tads_gr <- GRanges(
+  seqnames = tads$chrom,
+  ranges = IRanges(start = tads$start, end = tads$end),
+  id = tads$id,
+  type = tads$type
+)
+
+labels <- tads_gr$type
+```
+
+### Calculate
+
+```{r}
+m1 = normalizeToMatrix(in_score, tads_gr, value_column = "V4", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m2 = normalizeToMatrix(mc, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m3 = normalizeToMatrix(genes, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m4 = normalizeToMatrix(tes, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m5 = normalizeToMatrix(RIP, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+```
+### Plot
+```{r}
+jpeg("figures/heatmaps_HI-TADs_IPO323_WT.jpg", width = 12, height = 10, units = "in", res=900)
+
+heatmaps <- EnrichedHeatmap(m1, name = "Insulation Score",
+                  cluster_rows = TRUE,
+                  col = col_insulation,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#8856A7FF", "#B3CDE3FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "Insulation Score", 
+                  column_title_gp = gpar(col = "#8856A7FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m2, name = "5mC",
+                  cluster_rows = FALSE,
+                  col = col_5mC,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#D5006DFF","#F8B9D1FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "5mC", 
+                  column_title_gp = gpar(col = "#D5006DFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m3, name = "Genes",
+                  cluster_rows = FALSE,
+                  col = col_genes,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#4DB6ACFF", "#A7D8D1FF"), lwd = 2,
+                                lty = c("solid","dashed")))),
+                  column_title = "Genes", 
+                  column_title_gp = gpar(col = "#4DB6ACFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m4, name = "TEs",
+                  cluster_rows = FALSE,
+                  col = col_TEs,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#455A64FF", "#D3D3D3FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "TEs", 
+                  column_title_gp = gpar(col = "#455A64FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))+
+            EnrichedHeatmap(m5, name = "RIP",
+                  cluster_rows = FALSE,
+                  col = col_RIP,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#B15928FF", "#D9A74FFF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "RIP", 
+                  column_title_gp = gpar(col = "#B15928FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))
+
+draw(heatmaps, gap = unit(12, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+```
+
+# IPO323+dim2
+## Boundaries
+```{r}
+in_score <- toGRanges("data/TADs/IPO323+dim2_bin3kb_norm_ICE_DEFAULT_score.bedgraph")
+mc <- toGRanges("data/5mC/IPO323+dim2_5mC_w0.3kb.bed")
+tes <- toGRanges("data/annotations/IPO323_TEs_3kbCount.bed")
+genes <- toGRanges("data/annotations/IPO323_genes_3kbCount.bed")
+RIP <- toGRanges("data/RIP/1_RIP_whole_genome_scan/IPO323_RIPAnalysis_1kb_windows.bed")
+boundaries <- toGRanges("data/TADs/IPO323+dim2_bin3kb_norm_ICE_DEFAULT_boundaries.bed")
+```
+
+### Calculate
+
+```{r}
+in_score$name <- as.numeric(in_score$V4)
+mc$name <- as.numeric(mc$name)
+tes$name <- as.numeric(tes$name)
+genes$name <- as.numeric(genes$name)
+RIP$name <- as.numeric(RIP$name)
+regions = boundaries
+
+m1 = normalizeToMatrix(in_score, boundaries, value_column = "V4", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m2 = normalizeToMatrix(mc, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE, verbose=FALSE)
+m3 = normalizeToMatrix(genes, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m4 = normalizeToMatrix(tes, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m5 = normalizeToMatrix(RIP, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+```
+### Plot
+```{r}
+jpeg("figures/heatmaps_boundaries_IPO323+dim2.jpg", width = 12, height = 10, units = "in", res=900)
+
+heatmaps <- EnrichedHeatmap(m1, name = "Insulation Score",
+                  cluster_rows = FALSE,
+                  col = col_insulation,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#8856A7FF", lwd = 2))),
+                  column_title = "Insulation Score", 
+                  column_title_gp = gpar(col = "#8856A7FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m2, name = "5mC",
+                  cluster_rows = FALSE,
+                  col = col_5mC,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#D5006DFF", lwd = 2))),
+                  column_title = "5mC", 
+                  column_title_gp = gpar(col = "#D5006DFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m3, name = "Genes",
+                  cluster_rows = FALSE,
+                  col = col_genes,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#4DB6ACFF", lwd = 2))),
+                  column_title = "Genes", 
+                  column_title_gp = gpar(col = "#4DB6ACFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m4, name = "TEs",
+                  cluster_rows = FALSE,
+                  col = col_TEs,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#455A64FF", lwd = 2))),
+                  column_title = "TEs", 
+                  column_title_gp = gpar(col = "#455A64FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m5, name = "RIP",
+                  cluster_rows = FALSE,
+                  col = col_RIP,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#B15928FF", lwd = 2))),
+                  column_title = "RIP", 
+                  column_title_gp = gpar(col = "#B15928FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))
+
+draw(heatmaps, gap = unit(12, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+```
+
+
+### Just line graph
+```{r}
+library(grid)
+library(ComplexHeatmap)
+
+# Step 1: Draw the heatmaps first and store the modified object
+ht_list <- draw(heatmaps,
+                column_title_gp = gpar(fontsize = 16),
+                 gap = unit(50, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+# Step 1: Open the jpeg device for saving the plot
+jpeg("figures/linegraph_boundaries_IPO323+dim2.jpg", width = 12, height = 1.5, units = "in", res = 900)
+
+# Step 2: Create a layout for heatmaps and annotation plots
+grid.newpage()  # Clear the canvas before drawing
+
+layout <- grid.layout(nrow = 1, ncol = 5)
+pushViewport(viewport(layout = layout))
+
+# Step 3: Define a function to add annotations correctly
+add_anno_enriched <- function(ht_list, name, row, col) {
+    pushViewport(viewport(layout.pos.row = row, layout.pos.col = col))  # Position annotation
+    extract_anno_enriched(ht_list, name, newpage = FALSE)
+    upViewport()  # Move back up to prevent overlapping
+}
+
+# Step 4: Place annotations separately in grid layout
+add_anno_enriched(ht_list, "Insulation Score", 1, 1)
+add_anno_enriched(ht_list, "5mC", 1, 2)
+add_anno_enriched(ht_list, "Genes", 1, 3)
+add_anno_enriched(ht_list, "TEs", 1, 4)
+add_anno_enriched(ht_list, "RIP", 1, 5)
+
+# Step 5: Exit the viewport system to finalize drawing
+upViewport(0)
+
+# Step 6: Close the jpeg device to save the plot
+dev.off()
+
+```
+
+## HI-TADs
+
+```{r}
+hi_tads <- read_tsv("data/HI-TADs/IPO323+dim2_HI-TADs.bed", col_names = c("chrom", "start", "end", "id", "type"))
+hi_tads$type <- "HI-TAD"
+r_tads <- read_tsv("data/HI-TADs/IPO323+dim2_R-TADs.bed", col_names = c("chrom", "start", "end", "id", "type"))
+r_tads$type <- "R-TAD"
+
+tads <- rbind(hi_tads, r_tads) %>%
+  distinct()
+
+# Convert to GRanges
+tads_gr <- GRanges(
+  seqnames = tads$chrom,
+  ranges = IRanges(start = tads$start, end = tads$end),
+  id = tads$id,
+  type = tads$type
+)
+
+labels <- tads_gr$type
+```
+
+### Calculate
+
+```{r}
+m1 = normalizeToMatrix(in_score, tads_gr, value_column = "V4", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m2 = normalizeToMatrix(mc, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m3 = normalizeToMatrix(genes, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m4 = normalizeToMatrix(tes, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m5 = normalizeToMatrix(RIP, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+```
+### Plot
+```{r}
+jpeg("figures/heatmaps_HI-TADs_IPO323+dim2.jpg", width = 12, height = 10, units = "in", res=900)
+
+heatmaps <- EnrichedHeatmap(m1, name = "Insulation Score",
+                  cluster_rows = TRUE,
+                  col = col_insulation,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#8856A7FF", "#B3CDE3FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "Insulation Score", 
+                  column_title_gp = gpar(col = "#8856A7FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m2, name = "5mC",
+                  cluster_rows = FALSE,
+                  col = col_5mC,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#D5006DFF","#F8B9D1FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "5mC", 
+                  column_title_gp = gpar(col = "#D5006DFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m3, name = "Genes",
+                  cluster_rows = FALSE,
+                  col = col_genes,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#4DB6ACFF", "#A7D8D1FF"), lwd = 2,
+                                lty = c("solid","dashed")))),
+                  column_title = "Genes", 
+                  column_title_gp = gpar(col = "#4DB6ACFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m4, name = "TEs",
+                  cluster_rows = FALSE,
+                  col = col_TEs,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#455A64FF", "#D3D3D3FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "TEs", 
+                  column_title_gp = gpar(col = "#455A64FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))+
+            EnrichedHeatmap(m5, name = "RIP",
+                  cluster_rows = FALSE,
+                  col = col_RIP,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#B15928FF", "#D9A74FFF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "RIP", 
+                  column_title_gp = gpar(col = "#B15928FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))
+
+draw(heatmaps, gap = unit(12, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+```
+
+
+# IR26B_WT
+
+## Boundaries
+
+```{r}
+in_score <- toGRanges("data/TADs/IR26b_WT_bin3kb_norm_ICE_5_DEFAULT_score.bedgraph")
+mc <- toGRanges("data/5mC/IR0126B_WT_5mC_w0.3kb.bed")
+tes <- toGRanges("data/annotations/IR0126b_TEs_3kbCount.bed")
+genes <- toGRanges("data/annotations/IR0126b_genes_3kbCount.bed")
+RIP <- toGRanges("data/RIP/1_RIP_whole_genome_scan/IR26b_RIPAnalysis_1kb_windows.bed")
+boundaries <- toGRanges("data/TADs/IR26b_WT_bin3kb_norm_ICE_5_DEFAULT_boundaries.bed")
+```
+
+### Calculate
+
+```{r}
+in_score$name <- as.numeric(in_score$V4)
+mc$name <- as.numeric(mc$name)
+tes$name <- as.numeric(tes$name)
+genes$name <- as.numeric(genes$name)
+RIP$name <- as.numeric(RIP$name)
+regions = boundaries
+
+m1 = normalizeToMatrix(in_score, boundaries, value_column = "V4", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m2 = normalizeToMatrix(mc, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE, verbose=FALSE)
+m3 = normalizeToMatrix(genes, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m4 = normalizeToMatrix(tes, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m5 = normalizeToMatrix(RIP, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+```
+### Plot
+```{r}
+jpeg("figures/heatmaps_boundaries_IR26b_WT.jpg", width = 12, height = 10, units = "in", res=900)
+
+heatmaps <- EnrichedHeatmap(m1, name = "Insulation Score",
+                  cluster_rows = FALSE,
+                  col = col_insulation,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#8856A7FF", lwd = 2))),
+                  column_title = "Insulation Score", 
+                  column_title_gp = gpar(col = "#8856A7FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m2, name = "5mC",
+                  cluster_rows = FALSE,
+                  col = col_5mC,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#D5006DFF", lwd = 2))),
+                  column_title = "5mC", 
+                  column_title_gp = gpar(col = "#D5006DFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m3, name = "Genes",
+                  cluster_rows = FALSE,
+                  col = col_genes,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#4DB6ACFF", lwd = 2))),
+                  column_title = "Genes", 
+                  column_title_gp = gpar(col = "#4DB6ACFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m4, name = "TEs",
+                  cluster_rows = FALSE,
+                  col = col_TEs,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#455A64FF", lwd = 2))),
+                  column_title = "TEs", 
+                  column_title_gp = gpar(col = "#455A64FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m5, name = "RIP",
+                  cluster_rows = FALSE,
+                  col = col_RIP,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#B15928FF", lwd = 2))),
+                  column_title = "RIP", 
+                  column_title_gp = gpar(col = "#B15928FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))
+
+draw(heatmaps, gap = unit(12, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+```
+
+
+### Just line graph
+```{r}
+library(grid)
+library(ComplexHeatmap)
+
+# Step 1: Draw the heatmaps first and store the modified object
+ht_list <- draw(heatmaps,
+                column_title_gp = gpar(fontsize = 16),
+                 gap = unit(50, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+# Step 1: Open the jpeg device for saving the plot
+jpeg("figures/linegraph_boundaries_IR26b_WT.jpg", width = 12, height = 1.5, units = "in", res = 900)
+
+# Step 2: Create a layout for heatmaps and annotation plots
+grid.newpage()  # Clear the canvas before drawing
+
+layout <- grid.layout(nrow = 1, ncol = 5)
+pushViewport(viewport(layout = layout))
+
+# Step 3: Define a function to add annotations correctly
+add_anno_enriched <- function(ht_list, name, row, col) {
+    pushViewport(viewport(layout.pos.row = row, layout.pos.col = col))  # Position annotation
+    extract_anno_enriched(ht_list, name, newpage = FALSE)
+    upViewport()  # Move back up to prevent overlapping
+}
+
+# Step 4: Place annotations separately in grid layout
+add_anno_enriched(ht_list, "Insulation Score", 1, 1)
+add_anno_enriched(ht_list, "5mC", 1, 2)
+add_anno_enriched(ht_list, "Genes", 1, 3)
+add_anno_enriched(ht_list, "TEs", 1, 4)
+add_anno_enriched(ht_list, "RIP", 1, 5)
+
+# Step 5: Exit the viewport system to finalize drawing
+upViewport(0)
+
+# Step 6: Close the jpeg device to save the plot
+dev.off()
+
+```
+
+## HI-TADs
+
+```{r}
+hi_tads <- read_tsv("data/HI-TADs/IR26b_WT_HI-TADs.bed", col_names = c("chrom", "start", "end", "id", "type"))
+hi_tads$type <- "HI-TAD"
+r_tads <- read_tsv("data/HI-TADs/IR26b_WT_R-TADs.bed", col_names = c("chrom", "start", "end", "id", "type"))
+r_tads$type <- "R-TAD"
+
+tads <- rbind(hi_tads, r_tads) %>%
+  distinct()
+
+# Convert to GRanges
+tads_gr <- GRanges(
+  seqnames = tads$chrom,
+  ranges = IRanges(start = tads$start, end = tads$end),
+  id = tads$id,
+  type = tads$type
+)
+
+labels <- tads_gr$type
+```
+
+### Calculate
+
+```{r}
+m1 = normalizeToMatrix(in_score, tads_gr, value_column = "V4", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m2 = normalizeToMatrix(mc, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m3 = normalizeToMatrix(genes, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m4 = normalizeToMatrix(tes, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m5 = normalizeToMatrix(RIP, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+```
+### Plot
+```{r}
+jpeg("figures/heatmaps_HI-TADs_IR26b_WT.jpg", width = 12, height = 10, units = "in", res=900)
+
+heatmaps <- EnrichedHeatmap(m1, name = "Insulation Score",
+                  cluster_rows = TRUE,
+                  col = col_insulation,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#8856A7FF", "#B3CDE3FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "Insulation Score", 
+                  column_title_gp = gpar(col = "#8856A7FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m2, name = "5mC",
+                  cluster_rows = FALSE,
+                  col = col_5mC,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#D5006DFF","#F8B9D1FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "5mC", 
+                  column_title_gp = gpar(col = "#D5006DFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m3, name = "Genes",
+                  cluster_rows = FALSE,
+                  col = col_genes,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#4DB6ACFF", "#A7D8D1FF"), lwd = 2,
+                                lty = c("solid","dashed")))),
+                  column_title = "Genes", 
+                  column_title_gp = gpar(col = "#4DB6ACFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m4, name = "TEs",
+                  cluster_rows = FALSE,
+                  col = col_TEs,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#455A64FF", "#D3D3D3FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "TEs", 
+                  column_title_gp = gpar(col = "#455A64FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))+
+            EnrichedHeatmap(m5, name = "RIP",
+                  cluster_rows = FALSE,
+                  col = col_RIP,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#B15928FF", "#D9A74FFF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "RIP", 
+                  column_title_gp = gpar(col = "#B15928FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))
+
+draw(heatmaps, gap = unit(12, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+```
+
+# IR26B-dim2
+
+```{r}
+in_score <- toGRanges("data/TADs/IR26b-dim2_bin3kb_norm_ICE_5_DEFAULT_score.bedgraph")
+mc <- toGRanges("data/5mC/IR0126B-dim2_5mC_w0.3kb.bed")
+genes <- toGRanges("data/annotations/IR0126b_genes_3kbCount.bed")
+tes <- toGRanges("data/annotations/IR0126b_TEs_3kbCount.bed")
+RIP <- toGRanges("data/RIP/1_RIP_whole_genome_scan/IR26b_RIPAnalysis_1kb_windows.bed")
+boundaries <- toGRanges("data/TADs/IR26b-dim2_bin3kb_norm_ICE_5_DEFAULT_boundaries.bed")
+```
+
+## Boundaries
+### Calculate
+
+```{r}
+in_score$name <- as.numeric(in_score$V4)
+mc$name <- as.numeric(mc$name)
+tes$name <- as.numeric(tes$name)
+genes$name <- as.numeric(genes$name)
+RIP$name <- as.numeric(RIP$name)
+regions = boundaries
+
+m1 = normalizeToMatrix(in_score, boundaries, value_column = "V4", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m2 = normalizeToMatrix(mc, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE, verbose=FALSE)
+m3 = normalizeToMatrix(genes, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m4 = normalizeToMatrix(tes, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m5 = normalizeToMatrix(RIP, boundaries, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+```
+### Plot
+```{r}
+jpeg("figures/heatmaps_boundaries_IR26b-dim2.jpg", width = 12, height = 10, units = "in", res=900)
+
+heatmaps <- EnrichedHeatmap(m1, name = "Insulation Score",
+                  cluster_rows = FALSE,
+                  col = col_insulation,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#8856A7FF", lwd = 2))),
+                  column_title = "Insulation Score", 
+                  column_title_gp = gpar(col = "#8856A7FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m2, name = "5mC",
+                  cluster_rows = FALSE,
+                  col = col_5mC,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#D5006DFF", lwd = 2))),
+                  column_title = "5mC", 
+                  column_title_gp = gpar(col = "#D5006DFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m3, name = "Genes",
+                  cluster_rows = FALSE,
+                  col = col_genes,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#4DB6ACFF", lwd = 2))),
+                  column_title = "Genes", 
+                  column_title_gp = gpar(col = "#4DB6ACFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m4, name = "TEs",
+                  cluster_rows = FALSE,
+                  col = col_TEs,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#455A64FF", lwd = 2))),
+                  column_title = "TEs", 
+                  column_title_gp = gpar(col = "#455A64FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m5, name = "RIP",
+                  cluster_rows = FALSE,
+                  col = col_RIP,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = "#B15928FF", lwd = 2))),
+                  column_title = "RIP", 
+                  column_title_gp = gpar(col = "#B15928FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))
+
+draw(heatmaps, gap = unit(12, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+```
+
+### Just line graph
+```{r}
+library(grid)
+library(ComplexHeatmap)
+
+# Step 1: Draw the heatmaps first and store the modified object
+ht_list <- draw(heatmaps,
+                column_title_gp = gpar(fontsize = 16),
+                 gap = unit(50, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+# Step 1: Open the jpeg device for saving the plot
+jpeg("figures/linegraph_boundaries_IR26b-dim2.jpg", width = 12, height = 1.5, units = "in", res = 900)
+
+# Step 2: Create a layout for heatmaps and annotation plots
+grid.newpage()  # Clear the canvas before drawing
+
+layout <- grid.layout(nrow = 1, ncol = 5)
+pushViewport(viewport(layout = layout))
+
+# Step 3: Define a function to add annotations correctly
+add_anno_enriched <- function(ht_list, name, row, col) {
+    pushViewport(viewport(layout.pos.row = row, layout.pos.col = col))  # Position annotation
+    extract_anno_enriched(ht_list, name, newpage = FALSE)
+    upViewport()  # Move back up to prevent overlapping
+}
+
+# Step 4: Place annotations separately in grid layout
+add_anno_enriched(ht_list, "Insulation Score", 1, 1)
+add_anno_enriched(ht_list, "5mC", 1, 2)
+add_anno_enriched(ht_list, "Genes", 1, 3)
+add_anno_enriched(ht_list, "TEs", 1, 4)
+add_anno_enriched(ht_list, "RIP", 1, 5)
+
+# Step 5: Exit the viewport system to finalize drawing
+upViewport(0)
+
+# Step 6: Close the jpeg device to save the plot
+dev.off()
+
+```
+## HI-TADs
+
+```{r}
+hi_tads <- read_tsv("data/HI-TADs/IR26b-dim2_HI-TADs.bed", col_names = c("chrom", "start", "end", "id", "type"))
+hi_tads$type <- "HI-TAD"
+r_tads <- read_tsv("data/HI-TADs/IR26b-dim2_R-TADs.bed", col_names = c("chrom", "start", "end", "id", "type"))
+r_tads$type <- "R-TAD"
+
+tads <- rbind(hi_tads, r_tads) %>%
+  distinct()
+
+# Convert to GRanges
+tads_gr <- GRanges(
+  seqnames = tads$chrom,
+  ranges = IRanges(start = tads$start, end = tads$end),
+  id = tads$id,
+  type = tads$type
+)
+
+labels <- tads_gr$type
+```
+
+### Calculate
+
+```{r}
+m1 = normalizeToMatrix(in_score, tads_gr, value_column = "V4", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m2 = normalizeToMatrix(mc, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m3 = normalizeToMatrix(genes, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m4 = normalizeToMatrix(tes, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+m5 = normalizeToMatrix(RIP, tads_gr, value_column = "name", 
+    extend = 35000, mean_mode = "w0", background=0, w = 50, smooth=TRUE)
+```
+### Plot
+```{r}
+jpeg("figures/heatmaps_HI-TADs_IR26b-dim2.jpg", width = 12, height = 10, units = "in", res=900)
+
+heatmaps <- EnrichedHeatmap(m1, name = "Insulation Score",
+                  cluster_rows = TRUE,
+                  col = col_insulation,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#8856A7FF", "#B3CDE3FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "Insulation Score", 
+                  column_title_gp = gpar(col = "#8856A7FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m2, name = "5mC",
+                  cluster_rows = FALSE,
+                  col = col_5mC,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#D5006DFF","#F8B9D1FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "5mC", 
+                  column_title_gp = gpar(col = "#D5006DFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m3, name = "Genes",
+                  cluster_rows = FALSE,
+                  col = col_genes,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#4DB6ACFF", "#A7D8D1FF"), lwd = 2,
+                                lty = c("solid","dashed")))),
+                  column_title = "Genes", 
+                  column_title_gp = gpar(col = "#4DB6ACFF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal")) +
+            EnrichedHeatmap(m4, name = "TEs",
+                  cluster_rows = FALSE,
+                  col = col_TEs,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#455A64FF", "#D3D3D3FF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "TEs", 
+                  column_title_gp = gpar(col = "#455A64FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))+
+            EnrichedHeatmap(m5, name = "RIP",
+                  cluster_rows = FALSE,
+                  col = col_RIP,
+                  row_split = labels,
+                  height = unit(8, "cm"),
+                  top_annotation = HeatmapAnnotation(
+                    lines = anno_enriched(
+                      gp = gpar(col = c("#B15928FF", "#D9A74FFF"), lwd = 2,
+                      lty = c("solid","dashed")))),
+                  column_title = "RIP", 
+                  column_title_gp = gpar(col = "#B15928FF", fontsize = 15, fontfamily = "Helvetica"), 
+                  heatmap_legend_param = list(
+                    legend_position = "bottom",  
+                    legend_direction = "horizontal"))
+
+draw(heatmaps, gap = unit(12, "mm"), merge_legend = FALSE, heatmap_legend_side = "bottom")
+
+
+```
