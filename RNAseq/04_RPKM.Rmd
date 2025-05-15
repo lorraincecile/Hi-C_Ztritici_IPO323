@@ -1,0 +1,124 @@
+---
+title: "RPKM_Analysis"
+author: "IGlavincheska"
+date: "2025-03-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(rtracklayer)
+library(GenomicFeatures)
+```
+
+```{r rpkm}
+# Load count data (Have to change the path to each in Planta infection stage separately)
+data <- read.table("~/WP1/WP1.1/TEtranscripts_IPO323_D_vs_inVitro/TEtranscripts_out.cntTable",
+                   header = TRUE, row.names = 1, sep = "\t", fill = TRUE)
+
+# Split data into control and treatment datasets
+control_cols <- grep("\\.C$", colnames(data))  # Columns ending with ".C"
+treatment_cols <- grep("\\.T$", colnames(data))  # Columns ending with ".T"
+
+control_data <- data[, control_cols]
+treatment_data <- data[, treatment_cols]
+
+# Filter rows independently for control and treatment
+control_data <- control_data[rowSums(control_data) > 10 & rowSums(control_data > 0) == ncol(control_data), ]
+treatment_data <- treatment_data[rowSums(treatment_data > 0) == ncol(treatment_data) & rowSums(treatment_data) > 10, ]
+
+# Load annotation file and extract gene lengths
+txdb <- makeTxDbFromGFF("/Users/iglavinchesk/WP1/WP1.1/ref/IPO323_exons_fixed.gtf", format = "gtf")
+txdb_tes <- makeTxDbFromGFF("/Users/iglavinchesk/WP1/WP1.1/ref/IPO323_TEs.gtf", format = "gtf")
+
+gene_lengths <- genes(txdb)
+te_lengths <- genes(txdb_tes)
+
+gene_lengths$length <- width(reduce(exonsBy(txdb, by = "gene")))
+te_lengths$length <- width(reduce(exonsBy(txdb_tes, by = "gene")))
+
+# Convert to data frame
+gene_lengths_df <- data.frame(gene_id = names(gene_lengths), length = gene_lengths$length)
+rownames(gene_lengths_df) <- gene_lengths_df$gene_id
+te_lengths_df <- data.frame(gene_id = names(te_lengths), length = te_lengths$length)
+rownames(te_lengths_df) <- gsub('^gene_id\\s+"([^"]+)".*$', '\\1', te_lengths_df$gene_id)
+annotations <- rbind(gene_lengths_df, te_lengths_df)
+
+# Clean row names for control and treatment data
+rownames(control_data) <- gsub('^gene_id\\s+([^:]+):.*$', '\\1', rownames(control_data))
+rownames(treatment_data) <- gsub('^gene_id\\s+([^:]+):.*$', '\\1', rownames(treatment_data))
+
+# Extract gene coordinates from the GFF file
+gene_coords <- as.data.frame(genes(txdb))
+gene_coords$annotation <- "gene"
+rownames(gene_coords) <- gene_coords$gene_id
+
+te_coords <- as.data.frame(genes(txdb_tes))
+te_coords$annotation <- "TE"
+rownames(te_coords) <- gsub('^gene_id\\s+"([^"]+)".*$', '\\1', te_coords$gene_id)
+
+coords <- rbind(gene_coords, te_coords)
+
+# Merge gene coordinates with annotations
+annotations <- merge(annotations, coords[, c("seqnames","start", "end", "annotation")], by = "row.names", all.x = TRUE)
+rownames(annotations) <- annotations$Row.names
+annotations$Row.names <- NULL
+
+# Align control and treatment data with annotations
+common_genes_control <- intersect(rownames(control_data), rownames(annotations))
+common_genes_treatment <- intersect(rownames(treatment_data), rownames(annotations))
+
+control_data <- control_data[common_genes_control, , drop = FALSE]
+treatment_data <- treatment_data[common_genes_treatment, , drop = FALSE]
+
+annotations_control <- annotations[common_genes_control, , drop = FALSE]
+annotations_treatment <- annotations[common_genes_treatment, , drop = FALSE]
+
+# Ensure alignment between data and annotations
+if (!all(rownames(control_data) == rownames(annotations_control))) {
+  stop("Row names of control_data and annotations_control do not match!")
+}
+if (!all(rownames(treatment_data) == rownames(annotations_treatment))) {
+  stop("Row names of treatment_data and annotations_treatment do not match!")
+}
+
+# Calculate RPKM for control
+total_mapped_reads_control <- colSums(control_data)
+total_mapped_reads_millions_control <- total_mapped_reads_control / 1e6
+annotation_lengths_kb_control <- annotations_control$length.value / 1000
+rpkm_control <- control_data / (annotation_lengths_kb_control %o% total_mapped_reads_millions_control)
+
+# Calculate RPKM for treatment
+total_mapped_reads_treatment <- colSums(treatment_data)
+total_mapped_reads_millions_treatment <- total_mapped_reads_treatment / 1e6
+annotation_lengths_kb_treatment <- annotations_treatment$length.value / 1000
+rpkm_treatment <- treatment_data / (annotation_lengths_kb_treatment %o% total_mapped_reads_millions_treatment)
+
+# Calculate average RPKM for control and treatment replicates
+control_avg <- rowMeans(rpkm_control, na.rm = TRUE)
+treatment_avg <- rowMeans(rpkm_treatment, na.rm = TRUE)
+
+# Create data frames for BED files
+control_bed <- data.frame(
+  chrom = annotations_control$seqnames,
+  start = annotations_control$start,
+  end = annotations_control$end,
+  gene_id = rownames(rpkm_control),
+  RPKM = control_avg,
+  log2_RPKM = log2(control_avg + 1),
+  annotations = annotations_control$annotation
+)
+
+treatment_bed <- data.frame(
+  chrom = annotations_treatment$seqnames,
+  start = annotations_treatment$start,
+  end = annotations_treatment$end,
+  gene_id = rownames(rpkm_treatment),
+  RPKM = treatment_avg,
+  log2_RPKM = log2(treatment_avg + 1),
+  annotations = annotations_treatment$annotation
+)
+
+# Save as BED files
+write.table(control_bed, file = "~/WP1/WP1.1/TEtranscripts_IPO323_D_vs_inVitro/IPO323_inVitro_D_RPKM2.bed", sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+write.table(treatment_bed, file = "~/WP1/WP1.1/TEtranscripts_IPO323_D_vs_inVitro/IPO323_D_RPKM2.bed", sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+```

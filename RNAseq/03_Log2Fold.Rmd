@@ -1,0 +1,151 @@
+---
+title: "Log2Fold_Analysis"
+author: "IGlavincheska"
+date: "2025-03-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(rtracklayer)
+library(GenomicFeatures)
+library(DESeq2)
+```
+
+### Functions for Log2Fold Analysis
+
+```{r functions}
+# Function to clean and preprocess TEtranscripts data
+clean_tetranscripts_data <- function(file_path) {
+  data <- read.table(file_path, header = TRUE, row.names = 1, sep = "\t", fill = TRUE)
+  
+  # Extract and clean gene IDs
+  data$gene_id <- rownames(data)
+  data$gene_id <- gsub("^gene_id\\s+", "", data$gene_id)   # Remove "gene_id" prefix
+  data$gene_id <- gsub(":T.*", "", data$gene_id)           # Remove ":T" and everything after
+  rownames(data) <- data$gene_id                          # Set cleaned gene IDs as row names
+  
+  # Remove the 'gene_id' column
+  data <- data[, -ncol(data)]
+  
+  return(data)
+}
+
+# Function to perform DESeq2 analysis
+perform_deseq2 <- function(data, groups) {
+  # Filter low-count genes
+  min_read <- 1
+  data <- data[apply(data, 1, function(x) { max(x) }) > min_read, ]
+  
+  # Create sample information
+  sampleInfo <- data.frame(groups, row.names = colnames(data))
+  
+  # Run DESeq2
+  dds <- DESeqDataSetFromMatrix(countData = data, colData = sampleInfo, design = ~ groups)
+  dds$groups <- relevel(dds$groups, ref = "CGroup")
+  dds <- DESeq(dds)
+  res <- results(dds)
+  
+  return(as.data.frame(res))
+}
+
+# Function to annotate data with gene lengths and coordinates
+annotate_data <- function(data, gene_gtf, te_gtf) {
+  # Load GTF files
+  txdb <- makeTxDbFromGFF(gene_gtf, format = "gtf")
+  txdb_tes <- makeTxDbFromGFF(te_gtf, format = "gtf")
+  
+  # Extract gene lengths
+  gene_lengths <- genes(txdb)
+  te_lengths <- genes(txdb_tes)
+  gene_lengths$length <- width(reduce(exonsBy(txdb, by = "gene")))
+  te_lengths$length <- width(reduce(exonsBy(txdb_tes, by = "gene")))
+  
+  # Convert to data frames
+  gene_lengths_df <- data.frame(gene_id = names(gene_lengths), length = gene_lengths$length)
+  gene_lengths_df$annotation <- "gene"
+  te_lengths_df <- data.frame(gene_id = names(te_lengths), length = te_lengths$length)
+  te_lengths_df$annotation <- "TE"
+  
+  # Combine annotations
+  annotations <- rbind(gene_lengths_df, te_lengths_df)
+  rownames(annotations) <- annotations$gene_id
+  
+  # Extract gene coordinates
+  gene_coords <- as.data.frame(genes(txdb))
+  te_coords <- as.data.frame(genes(txdb_tes))
+  gene_coords$annotation <- "gene"
+  te_coords$annotation <- "TE"
+  coords <- rbind(gene_coords, te_coords)
+  rownames(coords) <- coords$gene_id
+  
+  # Merge annotations with coordinates
+  annotations <- merge(annotations, coords[, c("seqnames", "start", "end")], by = "row.names", all.x = TRUE)
+  rownames(annotations) <- annotations$Row.names
+  annotations$Row.names <- NULL
+  
+  # Filter annotations to match data
+  common_genes <- intersect(rownames(data), rownames(annotations))
+  data <- data[common_genes, , drop = FALSE]
+  annotations <- annotations[common_genes, , drop = FALSE]
+  
+  return(list(data = data, annotations = annotations))
+}
+
+# Function to save results as BED file
+save_as_bed <- function(data, annotations, output_file) {
+  # Create BED data frame
+  bed <- data.frame(
+    chrom = annotations$seqnames,
+    start = annotations$start,
+    end = annotations$end,
+    gene_id = rownames(data),
+    baseMean = data$baseMean,
+    log2FoldChange = data$log2FoldChange,
+    lfcSE = data$lfcSE,
+    stat = data$stat,
+    pvalue = data$pvalue,
+    padj = data$padj,
+    annotation = annotations$annotation
+  )
+  
+  # Save as BED file
+  write.table(bed, file = output_file, sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+}
+```
+
+### Log2Fold Analysis for All Files
+
+```{r analysis}
+# Define file paths and GTF files
+tetranscripts_files <- list(
+  "IPO323_A_vs_inVitro" = "~/WP1/WP1.1/TEtranscripts_IPO323_A_vs_inVitro/TEtranscripts_out.cntTable",
+  "IPO323_B_vs_inVitro" = "~/WP1/WP1.1/TEtranscripts_IPO323_B_vs_inVitro/TEtranscripts_out.cntTable",
+  "IPO323_C_vs_inVitro" = "~/WP1/WP1.1/TEtranscripts_IPO323_C_vs_inVitro/TEtranscripts_out.cntTable",
+  "IPO323_D_vs_inVitro" = "~/WP1/WP1.1/TEtranscripts_IPO323_D_vs_inVitro/TEtranscripts_out.cntTable"
+)
+gene_gtf <- "/Users/iglavinchesk/WP1/WP1.1/ref/IPO323_exons_fixed.gtf"
+te_gtf <- "/Users/iglavinchesk/WP1/WP1.1/ref/IPO323_TEs.gtf"
+
+# Define groups
+groups <- factor(c(rep("TGroup", 2), rep("CGroup", 2)))
+
+# Process each file
+for (condition in names(tetranscripts_files)) {
+  file_path <- tetranscripts_files[[condition]]
+  output_file <- paste0("~/WP1/WP1.1/TEtranscripts_", condition, "_Log2Fold.bed")
+  
+  # Clean and preprocess data
+  data <- clean_tetranscripts_data(file_path)
+  
+  # Perform DESeq2 analysis
+  res <- perform_deseq2(data, groups)
+  
+  # Annotate data
+  annotated <- annotate_data(res, gene_gtf, te_gtf)
+  
+  # Save results as BED file
+  save_as_bed(annotated$data, annotated$annotations, output_file)
+  
+  print(paste("Processed:", condition))
+}
+```
